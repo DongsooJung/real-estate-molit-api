@@ -57,9 +57,16 @@ def add_derived(df: pd.DataFrame) -> pd.DataFrame:
         )
         df["deal_date"] = pd.to_datetime(ymd, format="%Y-%m-%d", errors="coerce")
 
-    # ㎡당 가격(만원): deal_amount(만원) / area(㎡)
+    # ㎡당 가격(만원): deal_amount(만원) / area(㎡), 평당(1평=3.305785㎡)
     if {"deal_amount", "area"} <= set(df.columns):
         df["price_per_sqm"] = df["deal_amount"] / df["area"]
+        df["price_per_pyeong"] = df["price_per_sqm"] * 3.305785
+
+    # 취소(해제)거래 여부: cancel_flag == 'O'
+    if "cancel_flag" in df.columns:
+        df["is_cancelled"] = (
+            df["cancel_flag"].astype("string").str.strip().str.upper() == "O"
+        )
 
     # 층수 범주
     if "floor" in df.columns:

@@ -43,6 +43,8 @@ def main() -> None:
             area = round(random.choice(areas) + random.uniform(-2, 2), 2)
             # 강남권 ㎡당 대략 2,000~3,200만원 → deal_amount(만원)
             amount = int(area * random.uniform(2000, 3200))
+            cancelled = random.random() < 0.04  # 약 4%는 해제(취소)거래
+            day = random.randint(1, 28)
             rows.append(
                 {
                     "deal_amount": amount,
@@ -50,15 +52,15 @@ def main() -> None:
                     "build_year": random.choice([1999, 2004, 2008, 2015, 2021]),
                     "deal_year": year,
                     "deal_month": month,
-                    "deal_day": random.randint(1, 28),
+                    "deal_day": day,
                     "legal_dong": dong,
                     "apt_name": apt,
                     "area": area,
                     "jibun": str(random.randint(1, 900)),
                     "region_code": "11680",
                     "floor": random.randint(1, 30),
-                    "cancel_date": "",
-                    "cancel_flag": "",
+                    "cancel_date": f"{ym}{day:02d}" if cancelled else "",
+                    "cancel_flag": "O" if cancelled else "",
                 }
             )
 

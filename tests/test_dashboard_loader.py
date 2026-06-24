@@ -41,6 +41,18 @@ class TestAddDerived:
         out = add_derived(_sample_df())
         assert round(out["price_per_sqm"].iloc[0], 1) == round(82500 / 84.97, 1)
 
+    def test_price_per_pyeong(self):
+        out = add_derived(_sample_df())
+        assert round(out["price_per_pyeong"].iloc[0], 1) == round(
+            (82500 / 84.97) * 3.305785, 1
+        )
+
+    def test_is_cancelled(self):
+        df = _sample_df()
+        df["cancel_flag"] = ["O", ""]
+        out = add_derived(df)
+        assert out["is_cancelled"].tolist() == [True, False]
+
     def test_floor_category(self):
         out = add_derived(_sample_df())
         assert list(out["floor_category"]) == ["중층(6-15)", "저층(1-5)"]

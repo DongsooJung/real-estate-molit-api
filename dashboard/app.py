@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -38,6 +39,17 @@ DIM_LABELS = {
     "apt_name": "단지",
     "deal_type": "거래유형",
     "floor_category": "층수범주",
+}
+GEOJSON_PATH = ROOT / "dashboard" / "assets" / "seoul_sig.geojson"
+# 서울 25개 자치구 SIG_CD → 이름 (지도 hover·라벨용)
+SEOUL_SIG = {
+    "11110": "종로구", "11140": "중구", "11170": "용산구", "11200": "성동구",
+    "11215": "광진구", "11230": "동대문구", "11260": "중랑구", "11290": "성북구",
+    "11305": "강북구", "11320": "도봉구", "11350": "노원구", "11380": "은평구",
+    "11410": "서대문구", "11440": "마포구", "11470": "양천구", "11500": "강서구",
+    "11530": "구로구", "11545": "금천구", "11560": "영등포구", "11590": "동작구",
+    "11620": "관악구", "11650": "서초구", "11680": "강남구", "11710": "송파구",
+    "11740": "강동구",
 }
 
 
@@ -132,9 +144,17 @@ def _dim_label(col: str) -> str:
 # ----------------------------------------------------------------------
 # 탭
 # ----------------------------------------------------------------------
-tab_overview, tab_time, tab_dim, tab_dist, tab_data = st.tabs(
-    ["📊 개요", "📅 시계열", "🗂 구분별", "📈 분포·관계", "📋 데이터"]
+tab_overview, tab_time, tab_map, tab_dim, tab_dist, tab_data = st.tabs(
+    ["📊 개요", "📅 시계열", "🗺 지도", "🗂 구분별", "📈 분포·관계", "📋 데이터"]
 )
+
+
+@st.cache_data(show_spinner=False)
+def _load_geojson(path: str) -> dict | None:
+    p = Path(path)
+    if not p.exists():
+        return None
+    return json.loads(p.read_text(encoding="utf-8"))
 
 # ===== 개요 =====
 with tab_overview:
@@ -200,6 +220,76 @@ with tab_time:
             fig.add_scatter(x=ts["deal_date"], y=ts["이동평균"], mode="lines", name="이동평균(7)")
         fig.update_layout(yaxis_title=ts_metric, xaxis_title="")
         st.plotly_chart(fig, use_container_width=True)
+
+# ===== 지도 =====
+with tab_map:
+    gj_path = st.text_input(
+        "경계 GeoJSON 경로 (properties.sig_cd = region_code)",
+        value=str(GEOJSON_PATH),
+        key="geojson_path",
+    )
+    geojson = _load_geojson(gj_path)
+
+    if "region_code" not in f.columns:
+        st.caption("region_code 컬럼이 없어 지도를 표시할 수 없습니다.")
+    elif geojson is None:
+        st.warning(
+            f"GeoJSON을 찾지 못했습니다: `{gj_path}`\n\n"
+            "`python scripts/build_seoul_geo.py` 로 서울 시군구 경계를 생성하세요."
+        )
+    else:
+        m1, m2 = st.columns([1, 1])
+        map_metric = m1.selectbox(
+            "지표", ["거래건수", "평균 거래금액(억)", f"평균 {price_unit_label}"], key="map_metric"
+        )
+        anim = m2.radio("시간 애니메이션", ["없음", "일별", "주별"], horizontal=True, key="map_anim")
+
+        fmap = f.copy()
+        fmap["region_code"] = fmap["region_code"].astype(str)
+
+        def _aggregate(frame: pd.DataFrame, by: list[str]) -> pd.DataFrame:
+            if map_metric == "거래건수":
+                out = frame.groupby(by, observed=True).size().rename("값").reset_index()
+            elif "거래금액" in map_metric:
+                out = frame.groupby(by, observed=True)["deal_amount"].mean().rename("값").reset_index()
+                out["값"] = out["값"] / 10000
+            else:
+                out = frame.groupby(by, observed=True)[price_col].mean().rename("값").reset_index()
+            return out
+
+        anim_frame = None
+        if anim != "없음" and "deal_date" in fmap.columns and fmap["deal_date"].notna().any():
+            freq = "D" if anim == "일별" else "W"
+            fmap = fmap.dropna(subset=["deal_date"])
+            fmap["기간"] = (
+                fmap["deal_date"].dt.to_period(freq).dt.start_time.dt.strftime("%Y-%m-%d")
+            )
+            agg = _aggregate(fmap, ["region_code", "기간"])
+            anim_frame = "기간"
+            order = {"기간": sorted(agg["기간"].unique())}
+        else:
+            agg = _aggregate(fmap, ["region_code"])
+            order = None
+
+        agg["자치구"] = agg["region_code"].map(SEOUL_SIG).fillna(agg["region_code"])
+        fig = px.choropleth(
+            agg,
+            geojson=geojson,
+            locations="region_code",
+            featureidkey="properties.sig_cd",
+            color="값",
+            color_continuous_scale="YlOrRd",
+            range_color=(agg["값"].min(), agg["값"].max()),
+            animation_frame=anim_frame,
+            category_orders=order,
+            hover_name="자치구",
+            labels={"값": map_metric},
+        )
+        fig.update_geos(fitbounds="locations", visible=False)
+        fig.update_layout(margin=dict(l=0, r=0, t=30, b=0), height=560)
+        st.plotly_chart(fig, use_container_width=True)
+        if anim != "없음" and anim_frame is None:
+            st.caption("거래일 정보가 없어 애니메이션 없이 표시했습니다.")
 
 # ===== 구분별 =====
 with tab_dim:

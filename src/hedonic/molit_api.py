@@ -284,6 +284,14 @@ COLUMN_MAP = {
     "floor": "floor",               # 층
     "cdealDay": "cancel_date",      # 해제사유발생일
     "cdealType": "cancel_flag",     # 해제여부('O')
+    # --- 신 API 추가 필드 ---
+    "aptDong": "apt_dong",          # 동
+    "buyerGbn": "buyer_type",       # 매수자 구분(개인/법인 등)
+    "slerGbn": "seller_type",       # 매도자 구분
+    "estateAgentSggNm": "agent_sgg",  # 중개사 소재지(시군구)
+    "rgstDate": "register_date",    # 등기일자
+    "landLeaseholdGbn": "land_leasehold",  # 토지임대부 여부
+    "roadNm": "road_name",          # 도로명
 }
 
 

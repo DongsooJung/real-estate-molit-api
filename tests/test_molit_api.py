@@ -44,18 +44,18 @@ def _item_xml(
 ) -> str:
     return f"""
       <item>
-        <거래금액>{deal_amount}</거래금액>
-        <건축년도>{build_year}</건축년도>
-        <년>{year}</년>
-        <월>{month}</월>
-        <일>{day}</일>
-        <법정동>{legal_dong}</법정동>
-        <아파트>{apt}</아파트>
-        <전용면적>{area}</전용면적>
-        <지번>{jibun}</지번>
-        <지역코드>{region}</지역코드>
-        <층>{floor}</층>
-        <해제여부>{cancel}</해제여부>
+        <dealAmount>{deal_amount}</dealAmount>
+        <buildYear>{build_year}</buildYear>
+        <dealYear>{year}</dealYear>
+        <dealMonth>{month}</dealMonth>
+        <dealDay>{day}</dealDay>
+        <umdNm>{legal_dong}</umdNm>
+        <aptNm>{apt}</aptNm>
+        <excluUseAr>{area}</excluUseAr>
+        <jibun>{jibun}</jibun>
+        <sggCd>{region}</sggCd>
+        <floor>{floor}</floor>
+        <cdealType>{cancel}</cdealType>
       </item>"""
 
 
@@ -74,6 +74,7 @@ def _response_xml(items: str, result_code: str = "00", total: int = 1) -> str:
 
 class _FakeResponse:
     def __init__(self, text: str, status: int = 200):
+        self.text = text
         self.content = text.encode("utf-8")
         self.status_code = status
 
@@ -106,27 +107,27 @@ def _patch_get(monkeypatch, responses):
 # ----------------------------------------------------------------------
 class TestNormalizeColumns:
     def test_renames_to_snake_case(self, client):
-        raw = pd.DataFrame([{"거래금액": "82,500", "아파트": "래미안", "전용면적": "84.97"}])
+        raw = pd.DataFrame([{"dealAmount": "82,500", "aptNm": "래미안", "excluUseAr": "84.97"}])
         out = client._normalize_columns(raw)
         assert "deal_amount" in out.columns
         assert "apt_name" in out.columns
-        assert "거래금액" not in out.columns
+        assert "dealAmount" not in out.columns
 
     def test_deal_amount_comma_and_space_to_int(self, client):
-        raw = pd.DataFrame([{"거래금액": " 82,500"}, {"거래금액": "1,234,567"}])
+        raw = pd.DataFrame([{"dealAmount": " 82,500"}, {"dealAmount": "1,234,567"}])
         out = client._normalize_columns(raw)
         assert out["deal_amount"].tolist() == [82500, 1234567]
         assert str(out["deal_amount"].dtype) == "Int64"
 
     def test_numeric_types(self, client):
-        raw = pd.DataFrame([{"전용면적": "84.97", "층": "10", "건축년도": "2008"}])
+        raw = pd.DataFrame([{"excluUseAr": "84.97", "floor": "10", "buildYear": "2008"}])
         out = client._normalize_columns(raw)
         assert out["area"].dtype == float
         assert str(out["floor"].dtype) == "Int64"
         assert out["floor"].iloc[0] == 10
 
     def test_text_whitespace_stripped(self, client):
-        raw = pd.DataFrame([{"법정동": " 개포동 ", "아파트": " 래미안"}])
+        raw = pd.DataFrame([{"umdNm": " 개포동 ", "aptNm": " 래미안"}])
         out = client._normalize_columns(raw)
         assert out["legal_dong"].iloc[0] == "개포동"
         assert out["apt_name"].iloc[0] == "래미안"
@@ -146,7 +147,7 @@ class TestCallSinglePage:
         _patch_get(monkeypatch, [_FakeResponse(xml)])
         df = client._call_single_page(MolitQueryParams("11680", "202601"))
         assert len(df) == 2
-        assert "거래금액" in df.columns  # 정규화 전이라 한글 컬럼
+        assert "dealAmount" in df.columns  # 정규화 전이라 원본(영문) 태그
 
     def test_empty_items_returns_empty(self, client, monkeypatch):
         _patch_get(monkeypatch, [_FakeResponse(_response_xml("", total=0))])
@@ -157,6 +158,12 @@ class TestCallSinglePage:
         xml = _response_xml("", result_code="99")
         _patch_get(monkeypatch, [_FakeResponse(xml)])
         with pytest.raises(RuntimeError, match="99"):
+            client._call_single_page(MolitQueryParams("11680", "202601"))
+
+    def test_non_xml_response_raises_runtimeerror(self, client, monkeypatch):
+        # 게이트웨이가 평문 'Unauthorized'를 200으로 반환하는 경우
+        _patch_get(monkeypatch, [_FakeResponse("Unauthorized")])
+        with pytest.raises(RuntimeError, match="파싱 실패"):
             client._call_single_page(MolitQueryParams("11680", "202601"))
 
     def test_http_error_propagates(self, client, monkeypatch):

@@ -66,7 +66,7 @@ class MolitClient:
             )
         self.base_url = base_url or os.getenv(
             "MOLIT_API_BASE",
-            "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc"
+            "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade",
         )
         self.timeout = timeout
         self.endpoint = f"{self.base_url}/getRTMSDataSvcAptTrade"
@@ -204,8 +204,13 @@ class MolitClient:
         resp = requests.get(self.endpoint, params=query, timeout=self.timeout)
         resp.raise_for_status()
 
-        # bytes로 파싱(인코딩 헤더 의존 회피)
-        root = ET.fromstring(resp.content)
+        # bytes로 파싱(인코딩 헤더 의존 회피). 게이트웨이가 XML이 아닌 평문/HTML
+        # 에러("Unauthorized" 등)를 200으로 줄 수 있어 ParseError를 RuntimeError로 변환.
+        try:
+            root = ET.fromstring(resp.content)
+        except ET.ParseError as exc:
+            snippet = resp.text[:200].strip()
+            raise RuntimeError(f"MOLIT API 응답 파싱 실패: {snippet!r}") from exc
 
         # 공공데이터포털 표준 헤더: HTTP 200이라도 에러일 수 있어 resultCode 확인.
         code = root.findtext(".//resultCode")
@@ -262,23 +267,23 @@ class MolitClient:
 
 
 # ----------------------------------------------------------------------
-# MOLIT → 내부 컬럼 매핑 (참조용)
+# MOLIT → 내부 컬럼 매핑 (신 엔드포인트 apis.data.go.kr/1613000 영문 태그)
 # ----------------------------------------------------------------------
 COLUMN_MAP = {
-    "거래금액": "deal_amount",
-    "거래유형": "deal_type",
-    "건축년도": "build_year",
-    "년": "deal_year",
-    "월": "deal_month",
-    "일": "deal_day",
-    "법정동": "legal_dong",
-    "아파트": "apt_name",
-    "전용면적": "area",
-    "지번": "jibun",
-    "지역코드": "region_code",
-    "층": "floor",
-    "해제사유발생일": "cancel_date",
-    "해제여부": "cancel_flag",
+    "dealAmount": "deal_amount",    # 거래금액(만원, 콤마 포함 문자열)
+    "dealingGbn": "deal_type",      # 거래유형(중개거래/직거래)
+    "buildYear": "build_year",      # 건축년도
+    "dealYear": "deal_year",        # 년
+    "dealMonth": "deal_month",      # 월
+    "dealDay": "deal_day",          # 일
+    "umdNm": "legal_dong",          # 법정동(읍면동명)
+    "aptNm": "apt_name",            # 단지명
+    "excluUseAr": "area",           # 전용면적(㎡)
+    "jibun": "jibun",               # 지번
+    "sggCd": "region_code",         # 시군구코드 5자리
+    "floor": "floor",               # 층
+    "cdealDay": "cancel_date",      # 해제사유발생일
+    "cdealType": "cancel_flag",     # 해제여부('O')
 }
 
 

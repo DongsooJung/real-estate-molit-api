@@ -5,8 +5,10 @@ TODO 항목을 구현하면서 순차적으로 테스트 통과시킬 수 있도
 """
 import pytest
 import numpy as np
-import geopandas as gpd
-from shapely.geometry import Point
+
+# 공간계량 스택(geopandas/shapely)이 없으면 이 모듈 전체를 skip한다.
+gpd = pytest.importorskip("geopandas")
+Point = pytest.importorskip("shapely.geometry").Point
 
 # from hedonic.weights import build_weights, summarize_weights
 

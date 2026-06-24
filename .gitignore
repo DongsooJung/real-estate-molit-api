@@ -62,6 +62,8 @@ data/interim/*
 data/processed/*
 !data/processed/.gitkeep
 !data/processed/README.md
+data/sample/*                  # 데모 CSV: scripts/make_sample.py로 재생성
+!data/sample/.gitkeep
 
 # XML, Parquet 등 대용량 파일
 *.xml

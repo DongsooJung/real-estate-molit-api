@@ -91,7 +91,7 @@ st.sidebar.header("필터")
 f = df.copy()
 
 if "is_cancelled" in f.columns and f["is_cancelled"].any():
-    if st.sidebar.checkbox("취소(해제)거래 제외", value=True):
+    if st.sidebar.checkbox("취소(해제)거래 제외", value=False):
         f = f[~f["is_cancelled"]]
 
 if "region_code" in f.columns:

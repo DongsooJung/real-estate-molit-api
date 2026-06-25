@@ -52,12 +52,32 @@ def build_weights(
     Raises:
         ValueError: method 미지원 또는 gdf가 미터 좌표계 아닌 경우
     """
-    raise NotImplementedError(
-        "TODO: match method: "
-        "'queen' → Queen.from_dataframe(gdf), "
-        "'knn' → KNN.from_dataframe(gdf, k=k), ... "
-        "마지막에 w.transform = 'R'"
-    )
+    if gdf.crs is not None and gdf.crs.is_geographic:
+        raise ValueError(
+            "거리 기반 가중치는 미터 투영좌표계가 필요합니다 "
+            "(예: EPSG:5186). gdf.to_crs(5186) 후 사용하세요."
+        )
+
+    if method == "queen":
+        w = Queen.from_dataframe(gdf, use_index=True)
+    elif method == "rook":
+        w = Rook.from_dataframe(gdf, use_index=True)
+    elif method == "knn":
+        w = KNN.from_dataframe(gdf, k=k)
+    elif method == "distance":
+        w = DistanceBand.from_dataframe(
+            gdf, threshold=threshold_meter, binary=True, silence_warnings=True
+        )
+    else:
+        raise ValueError(
+            f"지원하지 않는 method: {method!r}. "
+            "'queen'|'rook'|'knn'|'distance' 중 선택."
+        )
+
+    if row_standardize:
+        w.transform = "R"
+
+    return w
 
 
 def summarize_weights(w: W) -> dict:
@@ -72,9 +92,20 @@ def summarize_weights(w: W) -> dict:
             'sparsity': float,       # 희소도 (0~1)
         }
     """
-    raise NotImplementedError(
-        "TODO: w.n, w.mean_neighbors, len(w.islands)/w.n, w.sparsity"
-    )
+    n = w.n
+    cardinalities = np.array(list(w.cardinalities.values()), dtype=float)
+    mean_neighbors = float(cardinalities.mean()) if n else 0.0
+    pct_islands = float(len(w.islands) / n) if n else 0.0
+    # 희소도 = 1 - (비영요소 수 / n²)
+    nonzero = float(cardinalities.sum())
+    sparsity = float(1.0 - nonzero / (n * n)) if n else 1.0
+
+    return {
+        "n": int(n),
+        "mean_neighbors": mean_neighbors,
+        "pct_islands": pct_islands,
+        "sparsity": sparsity,
+    }
 
 
 def plot_connectivity(

@@ -1,21 +1,22 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "real-estate-molit-api"
+title: "real-estate-molit-api: Hedonic pricing models for Korean apartment transactions with spatial correction"
 abstract: >-
-  Hedonic pricing models for Korean apartment transactions, with MOLIT public API collection, PySAL spatial weight matrices, and SAR/SEM/SDM estimation including implicit price reporting.
+  Analysis code for Korean apartment transaction data (Ministry of Land,
+  Infrastructure and Transport, MOLIT): hedonic price models with spatial
+  econometric corrections, reproducible from raw API responses.
 type: software
 version: 0.1.0
-date-released: "2026-11-23"
+date-released: "2026-11-25"
 license: MIT
 repository-code: "https://github.com/DongsooJung/real-estate-molit-api"
 keywords:
-  - hedonic-pricing
-  - korea
-  - molit-api
-  - spatial-econometrics
-  - real-estate
-  - pysal
-  - python
+  - hedonic pricing
+  - apartment
+  - spatial econometrics
+  - MOLIT API
+  - Korea
+  - reproducibility
 authors:
   - family-names: Jung
     given-names: Dongsoo
